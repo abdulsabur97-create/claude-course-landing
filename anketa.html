@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Анкета записи — Claude с нуля до PRO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Unbounded:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN SYSTEM ── */
+:root {
+  --bg: #08090a;
+  --bg-soft: #0e110e;
+  --bg-card: #131713;
+  --bg-card-2: #181d18;
+  --line: #232a23;
+  --line-soft: #1a1f1a;
+  --ink: #f3f5ef;
+  --ink-muted: #a7ada3;
+  --ink-dim: #6b6f67;
+  --neon: #c8ff3d;
+  --neon-2: #94e019;
+  --neon-soft: rgba(200,255,61,0.16);
+  --neon-glow: 0 0 40px rgba(200,255,61,0.35), 0 0 80px rgba(200,255,61,0.18);
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 30px 60px -30px rgba(0,0,0,0.6);
+  --bar-h: 68px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Manrope', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(900px 600px at 85% -10%,  rgba(148,224,25,0.09), transparent 60%),
+    radial-gradient(700px 500px at -10% 30%,  rgba(200,255,61,0.05), transparent 60%),
+    radial-gradient(800px 600px at 50% 120%,  rgba(148,224,25,0.07), transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+::selection { background: var(--neon); color: #0b0d0a; }
+
+/* ── TOP BAR ── */
+.top-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--bar-h);
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  background: rgba(8,9,10,0.80);
+  border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center;
+  padding: 0 28px; gap: 20px;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700; font-size: 13px;
+  flex-shrink: 0; text-decoration: none; color: var(--ink);
+}
+.brand .mark {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--neon);
+  display: grid; place-items: center;
+  color: #0b0d0a; font-weight: 800; font-size: 13px;
+  box-shadow: var(--neon-glow);
+}
+@media (max-width: 480px) { .brand span { display: none; } }
+
+.progress-wrap { flex: 1; display: flex; align-items: center; gap: 14px; }
+.progress-track {
+  flex: 1; height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-2), var(--neon));
+  border-radius: 999px;
+  transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 0 8px rgba(200,255,61,0.6);
+  width: 10%;
+}
+.progress-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--neon);
+  flex-shrink: 0; letter-spacing: 0.08em;
+  min-width: 38px; text-align: right;
+}
+
+/* ── FORM CONTAINER ── */
+.form-outer {
+  position: fixed;
+  top: var(--bar-h); bottom: var(--bar-h);
+  left: 0; right: 0;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1;
+}
+.steps-wrap {
+  position: relative;
+  width: 100%; max-width: 680px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── STEP ── */
+.step {
+  position: absolute;
+  inset: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 32px 32px 24px;
+  transform: translateX(110%);
+  opacity: 0;
+  transition: transform 0.48s cubic-bezier(0.22,1,0.36,1), opacity 0.3s ease;
+  pointer-events: none;
+  overflow-y: auto;
+}
+.step.active {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: all;
+}
+.step.exit-left  { transform: translateX(-110%); opacity: 0; }
+.step.from-left  { transform: translateX(-110%); }
+.step.exit-right { transform: translateX(110%);  opacity: 0; }
+
+@media (max-width: 480px) { .step { padding: 24px 20px 20px; } }
+
+/* Step number */
+.step-num {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; color: var(--neon);
+  letter-spacing: 0.12em; margin-bottom: 20px;
+}
+.step-num-line {
+  width: 24px; height: 1.5px;
+  background: var(--neon);
+  position: relative;
+}
+.step-num-line::after {
+  content: '';
+  position: absolute; right: -1px; top: -3px;
+  width: 7px; height: 7px;
+  border-right: 1.5px solid var(--neon);
+  border-top: 1.5px solid var(--neon);
+  transform: rotate(45deg);
+}
+
+/* Question */
+.step-q {
+  font-family: 'Unbounded', sans-serif;
+  font-size: clamp(20px, 3.8vw, 32px);
+  font-weight: 700; letter-spacing: -0.03em;
+  line-height: 1.15; color: var(--ink);
+  margin-bottom: 10px;
+}
+.important-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--neon);
+  background: var(--neon-soft);
+  border: 1px solid rgba(200,255,61,0.3);
+  padding: 3px 9px; border-radius: 999px;
+  vertical-align: middle; margin-left: 8px;
+  text-transform: uppercase; position: relative; top: -2px;
+}
+
+/* Hint */
+.step-hint {
+  font-size: 14px; color: var(--ink-dim);
+  margin-bottom: 26px; line-height: 1.5;
+}
+.step-hint.important {
+  color: rgba(200,255,61,0.65);
+  font-weight: 500;
+}
+
+/* ── INPUTS ── */
+.step-input,
+.step-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.025);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-family: 'Manrope', sans-serif;
+  font-size: 17px; font-weight: 500;
+  padding: 16px 20px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  caret-color: var(--neon);
+}
+.step-input:focus,
+.step-textarea:focus {
+  border-color: rgba(200,255,61,0.45);
+  background: rgba(200,255,61,0.018);
+  box-shadow: 0 0 0 4px rgba(200,255,61,0.07), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.step-input::placeholder,
+.step-textarea::placeholder { color: var(--ink-dim); }
+.step-textarea { resize: none; min-height: 130px; line-height: 1.6; }
+
+.step-input.err, .step-textarea.err {
+  border-color: rgba(255,80,80,0.55) !important;
+  box-shadow: 0 0 0 4px rgba(255,80,80,0.06) !important;
+  animation: shake 0.4s ease;
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-7px); }
+  40%     { transform: translateX(7px); }
+  60%     { transform: translateX(-4px); }
+  80%     { transform: translateX(4px); }
+}
+
+/* @ prefix inputs */
+.pfx-wrap { position: relative; }
+.pfx {
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+  color: var(--neon); font-family: 'JetBrains Mono', monospace;
+  font-size: 17px; pointer-events: none;
+}
+.pfx-wrap .step-input { padding-left: 36px; }
+
+/* Error message */
+.err-msg {
+  font-size: 13px; color: rgba(255,100,100,0.9);
+  margin-top: 9px; font-weight: 500;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+.err-msg.show { opacity: 1; pointer-events: all; }
+
+/* ── BUDGET OPTIONS ── */
+.budget-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 480px) { .budget-grid { grid-template-columns: 1fr; } }
+
+.budget-opt input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.budget-opt label {
+  display: flex; align-items: center; gap: 12px;
+  padding: 15px 18px;
+  background: rgba(255,255,255,0.025);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.18s;
+  font-size: 15px; font-weight: 500;
+  color: var(--ink-muted);
+  user-select: none;
+}
+.budget-opt label:hover {
+  border-color: rgba(200,255,61,0.28);
+  color: var(--ink);
+  background: rgba(200,255,61,0.015);
+}
+.budget-opt input:checked + label {
+  border-color: var(--neon);
+  background: rgba(200,255,61,0.06);
+  color: var(--ink);
+  box-shadow: 0 0 22px rgba(200,255,61,0.12);
+}
+.b-radio {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--line); flex-shrink: 0;
+  position: relative; transition: all 0.18s;
+  background: transparent;
+}
+.budget-opt input:checked + label .b-radio {
+  border-color: var(--neon); background: var(--neon);
+}
+.budget-opt input:checked + label .b-radio::after {
+  content: ''; position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 6px; height: 6px; background: #0b0d0a; border-radius: 50%;
+}
+
+.budget-other { margin-top: 12px; display: none; }
+.budget-other.show { display: block; }
+
+/* ── BOTTOM BAR ── */
+.bottom-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--bar-h);
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  background: rgba(8,9,10,0.80);
+  border-top: 1px solid var(--line-soft);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+}
+
+.btn-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 0; pointer-events: none;
+}
+.btn-back.on { opacity: 1; pointer-events: all; }
+.btn-back:hover { border-color: rgba(255,255,255,0.15); color: var(--ink); }
+
+.bottom-r { display: flex; align-items: center; gap: 14px; }
+
+.enter-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--ink-dim); letter-spacing: 0.06em;
+}
+@media (max-width: 540px) { .enter-hint { display: none; } }
+
+.btn-next {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  background: var(--neon); color: #0b0d0a;
+  font-family: 'Manrope', sans-serif;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer; border: none;
+  transition: transform 0.12s, box-shadow 0.15s;
+  box-shadow: 0 0 30px rgba(200,255,61,0.35);
+  white-space: nowrap;
+}
+.btn-next:hover { transform: translateY(-1px); box-shadow: 0 0 50px rgba(200,255,61,0.55); }
+.btn-next:active { transform: translateY(0); }
+
+.spinner {
+  display: none;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(11,13,10,0.25);
+  border-top-color: #0b0d0a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-next.loading .btn-label { display: none; }
+.btn-next.loading .btn-icon  { display: none; }
+.btn-next.loading .spinner   { display: block; }
+.btn-next.loading { opacity: 0.75; pointer-events: none; }
+
+/* ── SUCCESS ── */
+.success {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  z-index: 200; text-align: center; padding: 24px;
+}
+.success::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(600px 600px at 50% 50%, rgba(200,255,61,0.10), transparent 70%);
+  pointer-events: none;
+}
+.success.show { display: flex; }
+
+.s-icon {
+  width: 76px; height: 76px; border-radius: 50%;
+  background: var(--neon-soft);
+  border: 2px solid rgba(200,255,61,0.35);
+  display: grid; place-items: center;
+  margin-bottom: 28px;
+  box-shadow: 0 0 50px rgba(200,255,61,0.20);
+  animation: pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+  position: relative; z-index: 1;
+}
+@keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.s-icon svg { width: 34px; height: 34px; color: var(--neon); }
+
+.s-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: clamp(26px, 5vw, 40px);
+  font-weight: 700; letter-spacing: -0.03em;
+  margin-bottom: 14px; position: relative; z-index: 1;
+}
+.s-title .accent {
+  background: linear-gradient(180deg, #d8ff61 0%, #94e019 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.s-sub {
+  font-size: 17px; color: var(--ink-muted);
+  max-width: 400px; line-height: 1.6;
+  margin-bottom: 34px; position: relative; z-index: 1;
+}
+.s-tag {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 10px 18px;
+  background: var(--neon-soft);
+  border: 1px solid rgba(200,255,61,0.25);
+  border-radius: 999px;
+  font-size: 14px; color: var(--neon); font-weight: 600;
+  position: relative; z-index: 1;
+}
+.dot-pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--neon); box-shadow: 0 0 10px var(--neon);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+</style>
+</head>
+<body>
+
+<!-- ══ TOP BAR ══ -->
+<header class="top-bar">
+  <a href="index.html" class="brand">
+    <div class="mark">M</div>
+    <span>Claude PRO</span>
+  </a>
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="pgFill"></div>
+    </div>
+    <span class="progress-count" id="pgCount">1 / 10</span>
+  </div>
+</header>
+
+<!-- ══ STEPS ══ -->
+<div class="form-outer">
+  <div class="steps-wrap" id="wrap"></div>
+</div>
+
+<!-- ══ BOTTOM BAR ══ -->
+<footer class="bottom-bar">
+  <button class="btn-back" id="btnBack" onclick="prev()">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <path d="M9.5 11.5L5.5 7.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Назад
+  </button>
+  <div class="bottom-r">
+    <span class="enter-hint" id="enterHint">нажми Enter ↵</span>
+    <button class="btn-next" id="btnNext" onclick="next()">
+      <span class="btn-label" id="btnLabel">Далее</span>
+      <div class="spinner"></div>
+      <svg class="btn-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M2.5 7.5H12.5M12.5 7.5L8.5 3.5M12.5 7.5L8.5 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+</footer>
+
+<!-- ══ SUCCESS ══ -->
+<div class="success" id="success">
+  <div class="s-icon">
+    <svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 17l9 9L29 8"/>
+    </svg>
+  </div>
+  <h2 class="s-title">Анкета <span class="accent">отправлена!</span></h2>
+  <p class="s-sub">Мансур получил твои данные и скоро напишет тебе лично.</p>
+  <div class="s-tag">
+    <div class="dot-pulse"></div>
+    Ожидай сообщения в Telegram или WhatsApp
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────
+//  CONFIG — вставь свои данные
+// ─────────────────────────────────────────────────
+const BOT_TOKEN = '8879366526:AAFFC2HPOfJN6Lkmn86lVAVrh9PnAx1r8sM';
+const CHAT_ID   = '1703248826';
+
+// ─────────────────────────────────────────────────
+//  QUESTIONS
+// ─────────────────────────────────────────────────
+const QS = [
+  {
+    type: 'text',
+    q: 'Как тебя зовут?',
+    ph: 'Твоё имя...',
+    hint: ''
+  },
+  {
+    type: 'text',
+    q: 'Откуда ты?',
+    ph: 'Страна, город — например: Россия, Москва',
+    hint: ''
+  },
+  {
+    type: 'text',
+    q: 'Какой у тебя доход в среднем?',
+    ph: 'Например: 50 000 ₽ / месяц',
+    hint: 'Укажи примерно, точность не нужна'
+  },
+  {
+    type: 'textarea',
+    q: 'Какой у тебя запрос?',
+    ph: 'Что ты хочешь получить, пройдя это обучение? Где ты сейчас и куда хочешь прийти?',
+    hint: 'Самый важный вопрос — пиши честно и развёрнуто',
+    hintClass: 'important',
+    important: true
+  },
+  {
+    type: 'textarea',
+    q: 'Проходил ли ты другие курсы?',
+    ph: 'Нет, никогда.\n\nили\n\nДа — у [имя], ниша [ниша]. Расскажи подробнее...',
+    hint: 'Если да — напиши у кого и в какой нише'
+  },
+  {
+    type: 'budget',
+    q: 'Сколько готов заплатить за обучение?',
+    hint: 'Если я обучу тебя профессии с доходом 50–200 000 ₽ в месяц'
+  },
+  {
+    type: 'textarea',
+    q: 'Какая у тебя мотивация?',
+    ph: 'Почему хочешь зарабатывать онлайн? Что тебя движет к этому?',
+    hint: ''
+  },
+  {
+    type: 'tel',
+    q: 'Твой номер в WhatsApp',
+    ph: '+7 999 123 45 67',
+    hint: 'На этот номер я напишу первым'
+  },
+  {
+    type: 'handle',
+    q: 'Твой Telegram',
+    ph: 'username',
+    hint: 'Без @, просто юзернейм',
+    prefix: '@'
+  },
+  {
+    type: 'handle',
+    q: 'Твой Instagram',
+    ph: 'username',
+    hint: 'Без @, просто юзернейм',
+    prefix: '@'
+  }
+];
+
+const BUDGET_OPTS = [
+  { v: 'до 20 000 ₽',  l: 'до 20 000 ₽' },
+  { v: '50 000 ₽',     l: '50 000 ₽'    },
+  { v: '100 000 ₽',    l: '100 000 ₽'   },
+  { v: 'other',        l: 'Другое'       }
+];
+
+// ─────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────
+let cur = 0;
+const ans = {};
+
+// ─────────────────────────────────────────────────
+//  BUILD ALL STEPS ON LOAD
+// ─────────────────────────────────────────────────
+function buildAll() {
+  const wrap = document.getElementById('wrap');
+  QS.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'step' + (i === 0 ? ' active' : '');
+    div.id = 'step-' + i;
+
+    let body = '';
+
+    if (q.type === 'text' || q.type === 'tel') {
+      body = `<input type="${q.type === 'tel' ? 'tel' : 'text'}" class="step-input" id="inp-${i}" placeholder="${q.ph || ''}" autocomplete="off">`;
+    } else if (q.type === 'textarea') {
+      body = `<textarea class="step-textarea" id="inp-${i}" placeholder="${q.ph || ''}"></textarea>`;
+    } else if (q.type === 'handle') {
+      body = `
+        <div class="pfx-wrap">
+          <span class="pfx">${q.prefix}</span>
+          <input type="text" class="step-input" id="inp-${i}" placeholder="${q.ph || ''}" autocomplete="off">
+        </div>`;
+    } else if (q.type === 'budget') {
+      body = `
+        <div class="budget-grid">
+          ${BUDGET_OPTS.map((o, bi) => `
+            <div class="budget-opt">
+              <input type="radio" name="bud-${i}" id="b-${i}-${bi}" value="${o.v}" onchange="onBudget(${i}, '${o.v}')">
+              <label for="b-${i}-${bi}">
+                <div class="b-radio"></div>
+                ${o.l}
+              </label>
+            </div>
+          `).join('')}
+        </div>
+        <div class="budget-other" id="bother-${i}">
+          <input type="text" class="step-input" id="inp-other-${i}" placeholder="Напиши свою сумму..." autocomplete="off">
+        </div>`;
+    }
+
+    div.innerHTML = `
+      <div class="step-num">
+        <span>${String(i + 1).padStart(2, '0')}</span>
+        <div class="step-num-line"></div>
+      </div>
+      <h2 class="step-q">
+        ${q.q}${q.important ? '<span class="important-badge">★ важно</span>' : ''}
+      </h2>
+      ${q.hint ? `<p class="step-hint ${q.hintClass || ''}">${q.hint}</p>` : ''}
+      ${body}
+      <div class="err-msg" id="err-${i}">Это поле обязательно для заполнения</div>
+    `;
+
+    wrap.appendChild(div);
+  });
+}
+
+// ─────────────────────────────────────────────────
+//  GET / SAVE / VALIDATE
+// ─────────────────────────────────────────────────
+function getVal(i) {
+  const q = QS[i];
+  if (q.type === 'budget') {
+    const sel = document.querySelector(`input[name="bud-${i}"]:checked`);
+    if (!sel) return null;
+    if (sel.value === 'other') {
+      const c = (document.getElementById(`inp-other-${i}`) || {}).value?.trim();
+      return c ? { selected: 'other', custom: c } : null;
+    }
+    return { selected: sel.value };
+  }
+  const el = document.getElementById(`inp-${i}`);
+  return el ? el.value.trim() : '';
+}
+
+function saveVal(i) { ans[i] = getVal(i); }
+
+function showErr(i) {
+  const el = document.getElementById(`inp-${i}`) ||
+             document.querySelector(`#step-${i} .step-input`) ||
+             document.querySelector(`#step-${i} .step-textarea`);
+  const err = document.getElementById(`err-${i}`);
+  if (el) {
+    el.classList.add('err');
+    el.addEventListener('input', () => { el.classList.remove('err'); err?.classList.remove('show'); }, { once: true });
+  }
+  if (err) err.classList.add('show');
+}
+
+function validate(i) {
+  const v = getVal(i);
+  if (!v || (typeof v === 'string' && !v.length)) { showErr(i); return false; }
+  if (typeof v === 'object' && !v.selected) { showErr(i); return false; }
+  return true;
+}
+
+// ─────────────────────────────────────────────────
+//  NAVIGATION
+// ─────────────────────────────────────────────────
+function goTo(newI, dir) {
+  const oldStep = document.getElementById('step-' + cur);
+  const newStep = document.getElementById('step-' + newI);
+
+  oldStep.classList.remove('active');
+  oldStep.classList.add(dir === 'fwd' ? 'exit-left' : 'exit-right');
+
+  if (dir === 'back') {
+    newStep.classList.add('from-left');
+    newStep.getBoundingClientRect(); // force reflow
+  }
+
+  newStep.classList.add('active');
+  newStep.classList.remove('from-left', 'exit-left', 'exit-right');
+
+  // Clean up old step classes after animation
+  setTimeout(() => {
+    oldStep.classList.remove('exit-left', 'exit-right');
+  }, 520);
+
+  cur = newI;
+  updateUI();
+
+  // Focus input
+  setTimeout(() => {
+    const inp = document.getElementById(`inp-${cur}`);
+    if (inp) inp.focus();
+  }, 120);
+}
+
+function next() {
+  if (!validate(cur)) return;
+  saveVal(cur);
+  if (cur === QS.length - 1) { submit(); return; }
+  goTo(cur + 1, 'fwd');
+}
+
+function prev() {
+  if (cur === 0) return;
+  saveVal(cur);
+  goTo(cur - 1, 'back');
+}
+
+// ─────────────────────────────────────────────────
+//  UI UPDATE
+// ─────────────────────────────────────────────────
+function updateUI() {
+  const pct = ((cur + 1) / QS.length) * 100;
+  document.getElementById('pgFill').style.width = pct + '%';
+  document.getElementById('pgCount').textContent = `${cur + 1} / ${QS.length}`;
+  document.getElementById('btnBack').classList.toggle('on', cur > 0);
+
+  const isLast = cur === QS.length - 1;
+  document.getElementById('btnLabel').textContent = isLast ? 'Отправить' : 'Далее';
+  document.querySelector('.btn-icon').style.display = isLast ? 'none' : '';
+
+  const q = QS[cur];
+  document.getElementById('enterHint').textContent = 'нажми Enter ↵';
+}
+
+// ─────────────────────────────────────────────────
+//  BUDGET TOGGLE
+// ─────────────────────────────────────────────────
+function onBudget(i, v) {
+  const other = document.getElementById(`bother-${i}`);
+  if (v === 'other') {
+    other.classList.add('show');
+    setTimeout(() => document.getElementById(`inp-other-${i}`)?.focus(), 50);
+  } else {
+    other.classList.remove('show');
+    document.getElementById(`err-${i}`)?.classList.remove('show');
+    const el = document.querySelector(`#step-${i} .step-input`);
+    if (el) el.classList.remove('err');
+  }
+}
+
+// ─────────────────────────────────────────────────
+//  KEYBOARD
+// ─────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    next();
+  }
+});
+
+// ─────────────────────────────────────────────────
+//  SUBMIT → TELEGRAM
+// ─────────────────────────────────────────────────
+async function submit() {
+  const btn = document.getElementById('btnNext');
+  btn.classList.add('loading');
+
+  const fmt = (v) => {
+    if (!v) return '—';
+    if (typeof v === 'object') {
+      return v.selected === 'other' ? `Другое: ${v.custom}` : v.selected;
+    }
+    return v;
+  };
+
+  const a = ans;
+  const text = [
+    `🎯 <b>НОВАЯ ЗАЯВКА — «Claude с нуля до PRO»</b>`,
+    ``,
+    `👤 <b>Имя:</b> ${fmt(a[0])}`,
+    `🌍 <b>Откуда:</b> ${fmt(a[1])}`,
+    `💰 <b>Доход:</b> ${fmt(a[2])}`,
+    ``,
+    `📋 <b>Запрос / цель:</b>`,
+    fmt(a[3]),
+    ``,
+    `📚 <b>Предыдущие курсы:</b>`,
+    fmt(a[4]),
+    ``,
+    `💵 <b>Готов заплатить:</b> ${fmt(a[5])}`,
+    ``,
+    `🔥 <b>Мотивация:</b>`,
+    fmt(a[6]),
+    ``,
+    `📱 <b>WhatsApp:</b> ${fmt(a[7])}`,
+    `✈️ <b>Telegram:</b> @${fmt(a[8])}`,
+    `📸 <b>Instagram:</b> @${fmt(a[9])}`
+  ].join('\n');
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'HTML' })
+    });
+
+    if (!res.ok) {
+      const j = await res.json();
+      throw new Error(j.description || 'Telegram error');
+    }
+
+    document.getElementById('success').classList.add('show');
+
+  } catch (err) {
+    console.error(err);
+    btn.classList.remove('loading');
+    alert('Ошибка при отправке. Напиши Мансуру напрямую в Telegram: @themmancur');
+  }
+}
+
+// ─────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────
+buildAll();
+updateUI();
+setTimeout(() => document.getElementById('inp-0')?.focus(), 200);
+</script>
+</body>
+</html>
